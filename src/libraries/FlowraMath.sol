@@ -13,11 +13,11 @@ library FlowraMath {
     /// @notice Daily swap percentage (1%)
     uint256 public constant DAILY_SWAP_BPS = 100; // 1% in basis points
 
-    /// @notice Seconds in a day
-    uint256 public constant SECONDS_PER_DAY = 86400;
+    /// @notice Seconds in a day (1 minute for testing)
+    uint256 public constant SECONDS_PER_DAY = 60; // Changed from 86400 for testing
 
-    /// @notice Minimum deposit amount (100 USDC with 6 decimals)
-    uint256 public constant MIN_DEPOSIT = 100 * 10**6;
+    /// @notice Minimum deposit amount (1 USDC with 6 decimals for testing)
+    uint256 public constant MIN_DEPOSIT = 1 * 10**6; // Changed from 100 for testing
 
     /// @notice Maximum slippage (1%)
     uint256 public constant MAX_SLIPPAGE_BPS = 100;

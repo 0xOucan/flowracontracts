@@ -6,6 +6,7 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
+import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 
 import {IFlowraCore} from "./interfaces/IFlowraCore.sol";
 import {IFlowraAaveVault} from "./interfaces/IFlowraAaveVault.sol";
@@ -26,8 +27,13 @@ import {FlowraMath} from "./libraries/FlowraMath.sol";
  * - Distribute WETH to users
  * - Route yield to public goods projects via FlowraYieldRouter
  */
-contract FlowraCore is IFlowraCore, Ownable, ReentrancyGuard, Pausable {
+contract FlowraCore is IFlowraCore, Ownable, ReentrancyGuard, Pausable, AccessControl {
     using SafeERC20 for IERC20;
+
+    // ============ Roles ============
+
+    /// @notice Executor role - can manually trigger swaps for testing/low-activity periods
+    bytes32 public constant EXECUTOR_ROLE = keccak256("EXECUTOR_ROLE");
 
     // ============ State Variables ============
 
@@ -123,6 +129,9 @@ contract FlowraCore is IFlowraCore, Ownable, ReentrancyGuard, Pausable {
 
         USDC = IERC20(_usdc);
         WETH = IERC20(_weth);
+
+        // Grant DEFAULT_ADMIN_ROLE to deployer for role management
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
 
     // ============ Admin Functions ============
@@ -169,6 +178,24 @@ contract FlowraCore is IFlowraCore, Ownable, ReentrancyGuard, Pausable {
      */
     function unpause() external onlyOwner {
         _unpause();
+    }
+
+    /**
+     * @notice Grant executor role to an address
+     * @param executor Address to grant executor role
+     * @dev Only admin can grant executor role
+     */
+    function grantExecutor(address executor) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        grantRole(EXECUTOR_ROLE, executor);
+    }
+
+    /**
+     * @notice Revoke executor role from an address
+     * @param executor Address to revoke executor role
+     * @dev Only admin can revoke executor role
+     */
+    function revokeExecutor(address executor) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        revokeRole(EXECUTOR_ROLE, executor);
     }
 
     // ============ User Functions ============
@@ -232,9 +259,11 @@ contract FlowraCore is IFlowraCore, Ownable, ReentrancyGuard, Pausable {
     }
 
     /**
-     * @notice Execute daily swap for a user (callable by anyone or hook)
+     * @notice Execute daily swap for a user
      * @param user User address to swap for
      * @return amountOut WETH received from swap
+     * @dev Callable by: anyone (permissionless), hook (automatic), or executor (manual)
+     *      Executors are useful when pool activity is low and automatic execution doesn't trigger
      */
     function executeSwap(address user)
         external
@@ -407,6 +436,32 @@ contract FlowraCore is IFlowraCore, Ownable, ReentrancyGuard, Pausable {
         return yieldAmount;
     }
 
+    /**
+     * @notice Execute swaps for multiple users in batch (executor only)
+     * @param users Array of user addresses
+     * @return successCount Number of successful swaps
+     * @dev Only callable by executor role - useful for manual execution when pool activity is low
+     *      Continues on individual failures to maximize successful swaps
+     */
+    function executeSwapBatch(address[] calldata users)
+        external
+        onlyRole(EXECUTOR_ROLE)
+        nonReentrant
+        whenNotPaused
+        returns (uint256 successCount)
+    {
+        for (uint256 i = 0; i < users.length; i++) {
+            try this.executeSwap(users[i]) returns (uint256) {
+                successCount++;
+            } catch {
+                // Continue to next user on failure
+                continue;
+            }
+        }
+
+        return successCount;
+    }
+
     // ============ View Functions ============
 
     /**
@@ -513,5 +568,28 @@ contract FlowraCore is IFlowraCore, Ownable, ReentrancyGuard, Pausable {
         );
 
         return FlowraMath.calculateProgress(position.totalSwapsExecuted, totalSwapsNeeded);
+    }
+
+    /**
+     * @notice Check if user has executor role
+     * @param account Address to check
+     * @return True if account has executor role
+     */
+    function isExecutor(address account) external view returns (bool) {
+        return hasRole(EXECUTOR_ROLE, account);
+    }
+
+    // ============ Override Required Functions ============
+
+    /**
+     * @notice Override supportsInterface for AccessControl + other interfaces
+     */
+    function supportsInterface(bytes4 interfaceId)
+        public
+        view
+        override(AccessControl)
+        returns (bool)
+    {
+        return super.supportsInterface(interfaceId);
     }
 }
