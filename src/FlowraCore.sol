@@ -475,10 +475,12 @@ contract FlowraCore is IFlowraCore, IUnlockCallback, Ownable, ReentrancyGuard, P
 
         // Settle the debts (transfer tokens to PoolManager)
         if (usdcDelta < 0) {
-            // We owe USDC to the pool - transfer it
+            // CRITICAL: Sync before transferring tokens for flash accounting
+            poolManager.sync(poolKey.currency0);
+            // Transfer USDC to PoolManager
             USDC.safeTransfer(address(poolManager), uint256(-usdcDelta));
             // Settle the currency with the pool manager
-            poolManager.settle(poolKey.currency0);
+            poolManager.settle();
         }
 
         // Take the credits (receive tokens from PoolManager)
@@ -498,8 +500,8 @@ contract FlowraCore is IFlowraCore, IUnlockCallback, Ownable, ReentrancyGuard, P
      * @dev Uses the unlock/callback pattern required by Uniswap v4
      */
     function _executeUniswapSwap(uint256 usdcAmount) internal returns (uint256 wethAmount) {
-        // Approve PoolManager to spend USDC
-        USDC.forceApprove(address(poolManager), usdcAmount);
+        // NOTE: No approval needed - we use safeTransfer in callback, not transferFrom
+        // The callback pushes tokens to PoolManager rather than PoolManager pulling them
 
         // Encode callback data
         bytes memory data = abi.encode(SwapCallbackData({usdcAmount: usdcAmount}));

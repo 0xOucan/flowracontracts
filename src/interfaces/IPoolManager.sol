@@ -39,10 +39,14 @@ interface IPoolManager {
     /// @return The return data from the callback
     function unlock(bytes calldata data) external returns (bytes memory);
 
+    /// @notice Sync the currency balance for flash accounting
+    /// @param currency The currency to sync
+    /// @dev Must be called before transferring tokens and settling
+    function sync(Currency currency) external;
+
     /// @notice Settle (pay) a currency to the pool manager
-    /// @param currency The currency to settle
     /// @return paid The amount paid
-    function settle(Currency currency) external payable returns (uint256 paid);
+    function settle() external payable returns (uint256 paid);
 
     /// @notice Take (receive) a currency from the pool manager
     /// @param currency The currency to take
