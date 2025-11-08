@@ -12,6 +12,8 @@ import {IFlowraCore} from "./interfaces/IFlowraCore.sol";
 import {IFlowraAaveVault} from "./interfaces/IFlowraAaveVault.sol";
 import {IFlowraYieldRouter} from "./interfaces/IFlowraYieldRouter.sol";
 import {IPoolManager} from "./interfaces/IPoolManager.sol";
+import {IUnlockCallback} from "@uniswap/v4-core/src/interfaces/callback/IUnlockCallback.sol";
+import {BalanceDelta} from "@uniswap/v4-core/src/types/BalanceDelta.sol";
 import {FlowraTypes, Currency} from "./libraries/FlowraTypes.sol";
 import {FlowraMath} from "./libraries/FlowraMath.sol";
 
@@ -28,7 +30,7 @@ import {FlowraMath} from "./libraries/FlowraMath.sol";
  * - Distribute WETH to users
  * - Route yield to public goods projects via FlowraYieldRouter
  */
-contract FlowraCore is IFlowraCore, Ownable, ReentrancyGuard, Pausable, AccessControl {
+contract FlowraCore is IFlowraCore, IUnlockCallback, Ownable, ReentrancyGuard, Pausable, AccessControl {
     using SafeERC20 for IERC20;
 
     // ============ Roles ============
@@ -432,47 +434,86 @@ contract FlowraCore is IFlowraCore, Ownable, ReentrancyGuard, Pausable, AccessCo
         return amountOut;
     }
 
+    /// @notice Data structure for unlock callback
+    struct SwapCallbackData {
+        uint256 usdcAmount;
+    }
+
     /**
-     * @notice Execute swap through Uniswap v4 PoolManager
-     * @param usdcAmount Amount of USDC to swap
-     * @return wethAmount Amount of WETH received
-     * @dev This is a simplified implementation. For production, consider:
-     *      1. Using Uniswap UniversalRouter for better routing
-     *      2. Implementing proper unlock callback pattern
-     *      3. Adding MEV protection
-     *      4. Using TWAP/oracle for price validation
+     * @notice Uniswap v4 unlock callback - called by PoolManager during unlock
+     * @param data Encoded SwapCallbackData
+     * @return Encoded swap result (wethAmount)
+     * @dev This function is called by the PoolManager when we call poolManager.unlock()
+     *      It's where the actual swap execution happens in Uniswap v4
      */
-    function _executeUniswapSwap(uint256 usdcAmount) internal returns (uint256 wethAmount) {
-        // IMPORTANT: This is a simplified direct swap implementation
-        // Uniswap v4 uses an "unlock" pattern for swaps, which is more complex
-        // For a production implementation, you should:
-        // 1. Use the unlock() function with a callback
-        // 2. Implement unlockCallback() to handle the swap logic
-        // 3. Properly handle balance deltas and settlements
+    function unlockCallback(bytes calldata data) external override returns (bytes memory) {
+        // Only PoolManager can call this
+        require(msg.sender == address(poolManager), "Only PoolManager");
 
-        // For now, we'll use a direct approach that works for testing
-        // TODO: Replace with proper v4 unlock pattern for production
+        // Decode callback data
+        SwapCallbackData memory callbackData = abi.decode(data, (SwapCallbackData));
 
-        try poolManager.swap(
+        // Execute the swap
+        BalanceDelta delta = poolManager.swap(
             poolKey,
             IPoolManager.SwapParams({
                 zeroForOne: true, // USDC (currency0) → WETH (currency1)
-                amountSpecified: int256(usdcAmount),
-                sqrtPriceLimitX96: 0 // No price limit (not recommended for production)
+                amountSpecified: -int256(callbackData.usdcAmount), // Negative for exact input
+                sqrtPriceLimitX96: 0 // No price limit (for testing - add slippage in production)
             }),
             "" // No hook data
-        ) returns (int256 delta) {
-            // Delta is negative for amount out (WETH received)
-            wethAmount = uint256(-delta);
+        );
 
-            // Validate we received some WETH
-            if (wethAmount == 0) revert SwapFailed();
+        // Get the amounts from the delta
+        // For exact input (negative amount0), we pay USDC (negative) and receive WETH (positive)
+        int256 usdcDelta = delta.amount0(); // Should be negative (we owe USDC)
+        int256 wethDelta = delta.amount1(); // Should be positive (we receive WETH)
 
-            return wethAmount;
-        } catch {
-            // Swap failed - revert with error
-            revert SwapFailed();
+        // Validate the swap executed correctly
+        require(usdcDelta < 0, "Invalid USDC delta");
+        require(wethDelta > 0, "Invalid WETH delta");
+
+        // Settle the debts (transfer tokens to PoolManager)
+        if (usdcDelta < 0) {
+            // We owe USDC to the pool - transfer it
+            USDC.safeTransfer(address(poolManager), uint256(-usdcDelta));
+            // Settle the currency with the pool manager
+            poolManager.settle(poolKey.currency0);
         }
+
+        // Take the credits (receive tokens from PoolManager)
+        if (wethDelta > 0) {
+            // We receive WETH from the pool
+            poolManager.take(poolKey.currency1, address(this), uint256(wethDelta));
+        }
+
+        // Return the amount of WETH received
+        return abi.encode(uint256(wethDelta));
+    }
+
+    /**
+     * @notice Execute swap through Uniswap v4 PoolManager using proper unlock pattern
+     * @param usdcAmount Amount of USDC to swap
+     * @return wethAmount Amount of WETH received
+     * @dev Uses the unlock/callback pattern required by Uniswap v4
+     */
+    function _executeUniswapSwap(uint256 usdcAmount) internal returns (uint256 wethAmount) {
+        // Approve PoolManager to spend USDC
+        USDC.forceApprove(address(poolManager), usdcAmount);
+
+        // Encode callback data
+        bytes memory data = abi.encode(SwapCallbackData({usdcAmount: usdcAmount}));
+
+        // Call unlock - this will trigger our unlockCallback
+        bytes memory result = poolManager.unlock(data);
+
+        // Decode the result
+        wethAmount = abi.decode(result, (uint256));
+
+        // Validate we received some WETH
+        if (wethAmount == 0) revert SwapFailed();
+
+        return wethAmount;
     }
 
     /**
