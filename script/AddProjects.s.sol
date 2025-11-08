@@ -27,16 +27,19 @@ contract AddProjects is Script {
     }
 
     /**
-     * @notice Configure your 6 projects here
+     * @notice Configure your 6 projects from environment variables
      * @dev Projects are chosen by users - no fixed allocations
      *      Users select 1-6 projects and donations are split equally among selected projects
+     *
+     *      Required env vars:
+     *      - PROJECT_0_WALLET through PROJECT_5_WALLET
      */
-    function getProjects() internal pure returns (ProjectConfig[] memory) {
+    function getProjects() internal view returns (ProjectConfig[] memory) {
         ProjectConfig[] memory projectsConfig = new ProjectConfig[](6);
 
         // Project 0: Amazon Rainforest Restoration
         projectsConfig[0] = ProjectConfig({
-            wallet: payable(0x0000000000000000000000000000000000000001), // TODO: Replace with actual wallet
+            wallet: payable(vm.envAddress("PROJECT_0_WALLET")),
             allocationBps: 0, // Not used - users choose projects
             name: "Amazon Rainforest Restoration",
             description: "Reforestation efforts in the Amazon rainforest, Brazil"
@@ -44,7 +47,7 @@ contract AddProjects is Script {
 
         // Project 1: Ocean Plastic Removal
         projectsConfig[1] = ProjectConfig({
-            wallet: payable(0x0000000000000000000000000000000000000002), // TODO: Replace with actual wallet
+            wallet: payable(vm.envAddress("PROJECT_1_WALLET")),
             allocationBps: 0,
             name: "Ocean Plastic Removal",
             description: "Ocean cleanup initiatives in the Pacific Ocean"
@@ -52,7 +55,7 @@ contract AddProjects is Script {
 
         // Project 2: Solar Power for Villages
         projectsConfig[2] = ProjectConfig({
-            wallet: payable(0x0000000000000000000000000000000000000003), // TODO: Replace with actual wallet
+            wallet: payable(vm.envAddress("PROJECT_2_WALLET")),
             allocationBps: 0,
             name: "Solar Power for Villages",
             description: "Renewable energy projects in rural Kenya"
@@ -60,7 +63,7 @@ contract AddProjects is Script {
 
         // Project 3: Regenerative Farming Initiative
         projectsConfig[3] = ProjectConfig({
-            wallet: payable(0x0000000000000000000000000000000000000004), // TODO: Replace with actual wallet
+            wallet: payable(vm.envAddress("PROJECT_3_WALLET")),
             allocationBps: 0,
             name: "Regenerative Farming Initiative",
             description: "Sustainable agriculture programs in India"
@@ -68,7 +71,7 @@ contract AddProjects is Script {
 
         // Project 4: Coral Reef Restoration
         projectsConfig[4] = ProjectConfig({
-            wallet: payable(0x0000000000000000000000000000000000000005), // TODO: Replace with actual wallet
+            wallet: payable(vm.envAddress("PROJECT_4_WALLET")),
             allocationBps: 0,
             name: "Coral Reef Restoration",
             description: "Coral reef conservation in the Great Barrier Reef"
@@ -76,7 +79,7 @@ contract AddProjects is Script {
 
         // Project 5: Flowra (Default selected in UI)
         projectsConfig[5] = ProjectConfig({
-            wallet: payable(0x0000000000000000000000000000000000000006), // TODO: Replace with actual wallet
+            wallet: payable(vm.envAddress("PROJECT_5_WALLET")),
             allocationBps: 0,
             name: "Flowra",
             description: "Open source DeFi protocol for public goods funding"
@@ -92,13 +95,25 @@ contract AddProjects is Script {
 
         FlowraYieldRouter yieldRouter = FlowraYieldRouter(yieldRouterAddress);
 
-        // Get deployer
-        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
+        // Support both deployment methods
+        uint256 deployerPrivateKey;
+        address deployer;
+        bool usePrivateKey = false;
+
+        try vm.envUint("PRIVATE_KEY") returns (uint256 key) {
+            deployerPrivateKey = key;
+            deployer = vm.addr(deployerPrivateKey);
+            usePrivateKey = true;
+        } catch {
+            deployer = msg.sender;
+        }
 
         console2.log("==============================================");
         console2.log("Adding Projects to FlowraYieldRouter");
         console2.log("==============================================");
         console2.log("YieldRouter:", address(yieldRouter));
+        console2.log("Deployer:   ", deployer);
+        console2.log("Method:     ", usePrivateKey ? "Private Key" : "Named Wallet");
         console2.log("==============================================\n");
 
         ProjectConfig[] memory projects = getProjects();
@@ -107,7 +122,11 @@ contract AddProjects is Script {
         console2.log("Note: Users will select projects and donation % during deposit");
         console2.log("");
 
-        vm.startBroadcast(deployerPrivateKey);
+        if (usePrivateKey) {
+            vm.startBroadcast(deployerPrivateKey);
+        } else {
+            vm.startBroadcast();
+        }
 
         // Add each project
         for (uint256 i = 0; i < projects.length; i++) {

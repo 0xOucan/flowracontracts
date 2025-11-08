@@ -40,18 +40,38 @@ contract Deploy is Script {
     FlowraHook public flowraHook;
 
     function run() external {
-        // Get deployer from private key
-        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-        address deployer = vm.addr(deployerPrivateKey);
+        // Support both deployment methods:
+        // 1. Named wallet (--account monad-deployer): No PRIVATE_KEY needed
+        // 2. Private key (.env PRIVATE_KEY): Traditional approach
+
+        // Try to get PRIVATE_KEY, if not available, use named wallet approach
+        uint256 deployerPrivateKey;
+        address deployer;
+        bool usePrivateKey = false;
+
+        try vm.envUint("PRIVATE_KEY") returns (uint256 key) {
+            deployerPrivateKey = key;
+            deployer = vm.addr(deployerPrivateKey);
+            usePrivateKey = true;
+        } catch {
+            // PRIVATE_KEY not set, assume using --account flag
+            deployer = msg.sender; // Will be set by --sender flag
+        }
 
         console2.log("==============================================");
         console2.log("Flowra Protocol Deployment");
         console2.log("==============================================");
         console2.log("Deployer:", deployer);
         console2.log("Network: Arbitrum Mainnet (Chain ID: 42161)");
+        console2.log("Method:", usePrivateKey ? "Private Key" : "Named Wallet");
         console2.log("==============================================\n");
 
-        vm.startBroadcast(deployerPrivateKey);
+        // Start broadcast (with or without private key)
+        if (usePrivateKey) {
+            vm.startBroadcast(deployerPrivateKey);
+        } else {
+            vm.startBroadcast(); // Uses --account wallet
+        }
 
         // ============ Phase 1: Core Infrastructure ============
         console2.log("Phase 1: Deploying Core Infrastructure...\n");
