@@ -66,9 +66,13 @@ contract SetPoolKey is Script {
 
         console.log("Next Steps:");
         console.log("  1. Test with small DCA deposit (100-500 USDC)");
-        console.log("  2. Wait 24 hours for first swap eligibility");
+        console.log("  2. Wait 5 minutes for first swap eligibility (testing mode)");
         console.log("  3. Monitor swap queue for automated execution");
         console.log("  4. Update frontend with contract addresses");
+        console.log("");
+        console.log("Timing:");
+        console.log("  Testing:    5-minute intervals (~8.3 hours total)");
+        console.log("  Production: 24-hour intervals (~100 days total)");
         console.log("==============================================\n");
     }
 }
