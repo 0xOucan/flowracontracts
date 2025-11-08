@@ -5,7 +5,7 @@
 [![Solidity](https://img.shields.io/badge/Solidity-^0.8.26-363636?style=flat-square&logo=solidity)](https://soliditylang.org/)
 [![Foundry](https://img.shields.io/badge/Built%20with-Foundry-FFDB1C?style=flat-square)](https://book.getfoundry.sh/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](https://opensource.org/licenses/MIT)
-[![Status](https://img.shields.io/badge/Status-LIVE%20ON%20ARBITRUM-success?style=flat-square&logo=ethereum)](https://arbiscan.io/address/0x640cF504976e2cCc0A38806E5A0c6B910308F0cb)
+[![Status](https://img.shields.io/badge/Status-LIVE%20ON%20ARBITRUM-success?style=flat-square&logo=ethereum)](https://arbiscan.io/address/0xB2F2600792605Fb04a7eB0CfCAd6DFfDf5330B14)
 
 **🎉 FULLY DEPLOYED & OPERATIONAL ON ARBITRUM MAINNET**
 
@@ -61,7 +61,8 @@ Flowra enables users to:
 ## 🚀 Live Deployment (Arbitrum One)
 
 **Network**: Arbitrum One (Chain ID: 42161)
-**Deployed**: November 8, 2025
+**Deployed**: January 8, 2025
+**Deployer**: `0x9c77c6fafc1eb0821F1De12972Ef0199C97C6e45`
 **Status**: ✅ **100% COMPLETE & READY** - All systems deployed, verified, and finalized
 
 ### System Status
@@ -80,12 +81,16 @@ Flowra enables users to:
 
 ### Deployed Contracts
 
-| Contract | Address | Arbiscan |
-|----------|---------|----------|
-| **FlowraCore** | `0x640cF504976e2cCc0A38806E5A0c6B910308F0cb` | [View](https://arbiscan.io/address/0x640cF504976e2cCc0A38806E5A0c6B910308F0cb) |
-| **FlowraAaveVault** | `0x4cea77a21b9B18f447e3aCDFDeB1981B00d7d700` | [View](https://arbiscan.io/address/0x4cea77a21b9B18f447e3aCDFDeB1981B00d7d700) |
-| **FlowraYieldRouter** | `0x903C9Ad0d7D600554BA35E6255E62B1F144C1a18` | [View](https://arbiscan.io/address/0x903C9Ad0d7D600554BA35E6255E62B1F144C1a18) |
-| **FlowraHook** | `0x00f590D69dc706B09af1082EDfd6fe9Ce349c19E` | [View](https://arbiscan.io/address/0x00f590D69dc706B09af1082EDfd6fe9Ce349c19E) |
+| Contract | Address | Arbiscan | Function |
+|----------|---------|----------|----------|
+| **FlowraCore** | `0xB2F2600792605Fb04a7eB0CfCAd6DFfDf5330B14` | [View](https://arbiscan.io/address/0xB2F2600792605Fb04a7eB0CfCAd6DFfDf5330B14) | Main coordinator & DCA orchestrator |
+| **FlowraAaveVault** | `0x0830637a1CEAA4dE039b186Ea9060d89AB63C1BE` | [View](https://arbiscan.io/address/0x0830637a1CEAA4dE039b186Ea9060d89AB63C1BE) | Aave v3 yield generation |
+| **FlowraYieldRouter** | `0x8ba6246D59C8516Bb3522ce00fC95a3970b4C2B5` | [View](https://arbiscan.io/address/0x8ba6246D59C8516Bb3522ce00fC95a3970b4C2B5) | Public goods yield distribution |
+| **FlowraHook** | `0x1c95Da298E99Fb478C30823afA7b59A0Ff7b99DF` | [View](https://arbiscan.io/address/0x1c95Da298E99Fb478C30823afA7b59A0Ff7b99DF) | Uniswap v4 automated DCA hook |
+
+**Deployment Files:**
+- Main contracts: [`deployments/arbitrum-mainnet.json`](./deployments/arbitrum-mainnet.json)
+- Hook contract: [`deployments/arbitrum-hook.json`](./deployments/arbitrum-hook.json)
 
 ### Configuration ✅
 
@@ -93,9 +98,10 @@ Flowra enables users to:
 
 - ✅ **Executor Address**: `0xcce721fC201D4571A5AC826A3e0908F81807fAa5` (has EXECUTOR_ROLE)
 - ✅ **6 Public Goods Projects**: Added and active
-- ✅ **Aave v3 Integration**: Connected to Arbitrum Aave Pool
-- ✅ **Uniswap v4 Hook**: Deployed at `0x00f590D69dc706B09af1082EDfd6fe9Ce349c19E`
-- ✅ **Pool Key Configured**: Set to USDC/WETH pool `0x864abca0a6202dba5b8868772308da953ff125b0f95015adbf89aaf579e903a8`
+- ✅ **Aave v3 Integration**: Connected to Arbitrum Aave Pool (`0x794a61358D6845594F94dc1DB02A252b5b4814aD`)
+- ✅ **Uniswap v4 Hook**: Deployed at `0x1c95Da298E99Fb478C30823afA7b59A0Ff7b99DF`
+- ✅ **Pool Manager**: Connected to `0x360E68faCcca8cA495c1B759Fd9EEe466db9FB32`
+- ✅ **Pool Key Configured**: USDC/WETH pool initialized
 - ✅ **USDC/WETH Pool**: Connected to [live v4 pool](https://app.uniswap.org/explore/pools/arbitrum/0x864abca0a6202dba5b8868772308da953ff125b0f95015adbf89aaf579e903a8)
 - ✅ **All contracts verified** on Arbiscan
 - ✅ **System Status**: **READY FOR USE** 🚀
@@ -363,17 +369,17 @@ Traditional DCA requires external keepers/bots → costly & centralized. With Un
 # Approve USDC (100 USDC = 100000000 with 6 decimals)
 cast send 0xaf88d065e77c8cC2239327C5EDb3A432268e5831 \
   "approve(address,uint256)" \
-  0x640cF504976e2cCc0A38806E5A0c6B910308F0cb \
+  0xB2F2600792605Fb04a7eB0CfCAd6DFfDf5330B14 \
   100000000 \
   --rpc-url $ARBITRUM_RPC_URL \
   --account monad-deployer
 
-# Deposit 100 USDC with 10% yield to Flowra project (ID 5)
-cast send 0x640cF504976e2cCc0A38806E5A0c6B910308F0cb \
+# Deposit 100 USDC with 10% yield to Flowra project (ID 0)
+cast send 0xB2F2600792605Fb04a7eB0CfCAd6DFfDf5330B14 \
   "deposit(uint256,uint256,uint256[])" \
   100000000 \
   1000 \
-  "[5]" \
+  "[0]" \
   --rpc-url $ARBITRUM_RPC_URL \
   --account monad-deployer
 ```
@@ -381,12 +387,12 @@ cast send 0x640cF504976e2cCc0A38806E5A0c6B910308F0cb \
 **Step 2: Monitor Swap Queue**
 ```bash
 # Check pending swaps
-cast call 0x00f590D69dc706B09af1082EDfd6fe9Ce349c19E \
+cast call 0x1c95Da298E99Fb478C30823afA7b59A0Ff7b99DF \
   "getPendingSwapCount()" \
   --rpc-url $ARBITRUM_RPC_URL
 
 # Check if you're in queue
-cast call 0x00f590D69dc706B09af1082EDfd6fe9Ce349c19E \
+cast call 0x1c95Da298E99Fb478C30823afA7b59A0Ff7b99DF \
   "isInQueue(address)" \
   0x9c77c6fafc1eb0821F1De12972Ef0199C97C6e45 \
   --rpc-url $ARBITRUM_RPC_URL
@@ -401,7 +407,7 @@ cast call 0x00f590D69dc706B09af1082EDfd6fe9Ce349c19E \
 **Step 4: Manual Swap (Optional - Testing Only)**
 ```bash
 # Trigger swap manually as executor
-cast send 0x640cF504976e2cCc0A38806E5A0c6B910308F0cb \
+cast send 0xB2F2600792605Fb04a7eB0CfCAd6DFfDf5330B14 \
   "executeSwap(address)" \
   0x9c77c6fafc1eb0821F1De12972Ef0199C97C6e45 \
   --rpc-url $ARBITRUM_RPC_URL \
@@ -493,7 +499,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 **Event**: Octant DeFi Hackathon 2025
 **Team**: 0xOucan
 **Contact**: [@0xoucan](https://x.com/0xoucan) on X (Twitter)
-**Submission Date**: November 8, 2025
+**Submission Date**: January 8, 2025 (Latest Deployment)
 
 ### 🏆 Hackathon Highlights
 
@@ -519,8 +525,10 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Complete testing and deployment automation scripts
 
 **Live Demo:**
-- **FlowraCore**: https://arbiscan.io/address/0x640cF504976e2cCc0A38806E5A0c6B910308F0cb
-- **FlowraHook**: https://arbiscan.io/address/0x00f590D69dc706B09af1082EDfd6fe9Ce349c19E
+- **FlowraCore**: https://arbiscan.io/address/0xB2F2600792605Fb04a7eB0CfCAd6DFfDf5330B14
+- **FlowraAaveVault**: https://arbiscan.io/address/0x0830637a1CEAA4dE039b186Ea9060d89AB63C1BE
+- **FlowraYieldRouter**: https://arbiscan.io/address/0x8ba6246D59C8516Bb3522ce00fC95a3970b4C2B5
+- **FlowraHook**: https://arbiscan.io/address/0x1c95Da298E99Fb478C30823afA7b59A0Ff7b99DF
 - **USDC/WETH Pool**: https://app.uniswap.org/explore/pools/arbitrum/0x864abca0a6202dba5b8868772308da953ff125b0f95015adbf89aaf579e903a8
 
 **Try It Yourself:**
@@ -540,6 +548,69 @@ cd flowracontracts
 ## ⚠️ Disclaimer
 
 This software is provided "as is" without warranty. Not audited. Use at your own risk.
+
+---
+
+## 📋 Quick Reference
+
+### Contract Addresses (Copy-Paste Ready)
+
+```bash
+# Core Contracts
+export FLOWRA_CORE=0xB2F2600792605Fb04a7eB0CfCAd6DFfDf5330B14
+export FLOWRA_AAVE_VAULT=0x0830637a1CEAA4dE039b186Ea9060d89AB63C1BE
+export FLOWRA_YIELD_ROUTER=0x8ba6246D59C8516Bb3522ce00fC95a3970b4C2B5
+export FLOWRA_HOOK=0x1c95Da298E99Fb478C30823afA7b59A0Ff7b99DF
+
+# Tokens
+export USDC=0xaf88d065e77c8cC2239327C5EDb3A432268e5831
+export WETH=0x82aF49447D8a07e3bd95BD0d56f35241523fBab1
+
+# Protocol Addresses
+export AAVE_POOL=0x794a61358D6845594F94dc1DB02A252b5b4814aD
+export POOL_MANAGER=0x360E68faCcca8cA495c1B759Fd9EEe466db9FB32
+
+# Network
+export ARBITRUM_RPC_URL=https://arb1.arbitrum.io/rpc
+export CHAIN_ID=42161
+
+# Deployer (for reference)
+export DEPLOYER=0x9c77c6fafc1eb0821F1De12972Ef0199C97C6e45
+```
+
+### Solidity Addresses
+
+```solidity
+// Core Protocol
+address constant FLOWRA_CORE = 0xB2F2600792605Fb04a7eB0CfCAd6DFfDf5330B14;
+address constant FLOWRA_AAVE_VAULT = 0x0830637a1CEAA4dE039b186Ea9060d89AB63C1BE;
+address constant FLOWRA_YIELD_ROUTER = 0x8ba6246D59C8516Bb3522ce00fC95a3970b4C2B5;
+address constant FLOWRA_HOOK = 0x1c95Da298E99Fb478C30823afA7b59A0Ff7b99DF;
+
+// Tokens
+address constant USDC = 0xaf88d065e77c8cC2239327C5EDb3A432268e5831;
+address constant WETH = 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1;
+
+// Protocol Integrations
+address constant AAVE_POOL = 0x794a61358D6845594F94dc1DB02A252b5b4814aD;
+address constant POOL_MANAGER = 0x360E68faCcca8cA495c1B759Fd9EEe466db9FB32;
+```
+
+### TypeScript/JavaScript
+
+```typescript
+// Contract addresses for Arbitrum One
+export const CONTRACTS = {
+  FLOWRA_CORE: '0xB2F2600792605Fb04a7eB0CfCAd6DFfDf5330B14',
+  FLOWRA_AAVE_VAULT: '0x0830637a1CEAA4dE039b186Ea9060d89AB63C1BE',
+  FLOWRA_YIELD_ROUTER: '0x8ba6246D59C8516Bb3522ce00fC95a3970b4C2B5',
+  FLOWRA_HOOK: '0x1c95Da298E99Fb478C30823afA7b59A0Ff7b99DF',
+  USDC: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',
+  WETH: '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1',
+  AAVE_POOL: '0x794a61358D6845594F94dc1DB02A252b5b4814aD',
+  POOL_MANAGER: '0x360E68faCcca8cA495c1B759Fd9EEe466db9FB32',
+} as const
+```
 
 ---
 
