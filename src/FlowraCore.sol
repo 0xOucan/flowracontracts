@@ -131,6 +131,13 @@ contract FlowraCore is IFlowraCore, Ownable, ReentrancyGuard, Pausable, AccessCo
     event YieldRouterUpdated(address indexed oldRouter, address indexed newRouter);
     event HookUpdated(address indexed oldHook, address indexed newHook);
     event PoolManagerUpdated(address indexed oldManager, address indexed newManager);
+    event PoolKeyUpdated(
+        Currency indexed currency0,
+        Currency indexed currency1,
+        uint24 fee,
+        int24 tickSpacing,
+        address indexed hooks
+    );
     event SwapIntervalUpdated(uint256 oldInterval, uint256 newInterval);
     event MaxSlippageUpdated(uint256 oldSlippage, uint256 newSlippage);
 
@@ -205,6 +212,35 @@ contract FlowraCore is IFlowraCore, Ownable, ReentrancyGuard, Pausable, AccessCo
         if (_hook == address(0)) revert ZeroAddress();
         emit HookUpdated(hookContract, _hook);
         hookContract = _hook;
+    }
+
+    /**
+     * @notice Set Uniswap v4 pool key for USDC/WETH swaps
+     * @param _poolKey Pool key struct with currency pair, fee, tick spacing, and hooks
+     * @dev Pool key must be configured before swaps can execute
+     *
+     * Example pool key for USDC/WETH on Arbitrum:
+     * - currency0: 0xaf88d065e77c8cC2239327C5EDb3A432268e5831 (USDC)
+     * - currency1: 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1 (WETH)
+     * - fee: 3000 (0.3%)
+     * - tickSpacing: 60
+     * - hooks: FlowraHook contract address
+     */
+    function setPoolKey(IPoolManager.PoolKey calldata _poolKey) external onlyOwner {
+        // Validate currency addresses
+        if (Currency.unwrap(_poolKey.currency0) == address(0) ||
+            Currency.unwrap(_poolKey.currency1) == address(0)) {
+            revert ZeroAddress();
+        }
+
+        poolKey = _poolKey;
+        emit PoolKeyUpdated(
+            _poolKey.currency0,
+            _poolKey.currency1,
+            _poolKey.fee,
+            _poolKey.tickSpacing,
+            _poolKey.hooks
+        );
     }
 
     /**
