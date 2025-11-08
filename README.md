@@ -234,7 +234,14 @@ WETH: 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1
 ### Protocol Addresses
 
 ```solidity
+// Aave v3
 Aave v3 Pool: 0x794a61358D6845594F94dc1DB02A252b5b4814aD
+
+// Uniswap v4
+PoolManager:      0x360e68faccca8ca495c1b759fd9eee466db9fb32
+PositionManager:  0xd88f38f930b7952f2db2432cb002e7abbf3dd869
+UniversalRouter:  0xa51afafe0263b40edaef0df8781ea9aa03e381a3
+Permit2:          0x000000000022D473030F116dDEE9F6B43aC78BA3
 ```
 
 ## 🎨 Design Inspiration
@@ -253,26 +260,38 @@ Flowra is inspired by **Octant v2's innovative yield donation mechanism**, adapt
 **Our Innovation:**
 - Combined DCA automation + yield generation + public goods funding in ONE protocol
 - Integrated with Aave v3 for passive yield on idle deposits
-- Built for Uniswap v4 hook compatibility (ready when v4 launches on Arbitrum)
+- **Built on Uniswap v4** - leveraging live hook infrastructure on Arbitrum One
 
 ### Uniswap v4 Hooks Architecture
 
 Flowra is designed with **Uniswap v4 Hooks** at its core:
 
-**Current Implementation:**
-- `FlowraHook.sol` implements the BaseHook interface
-- Prepared for automated DCA swaps via `beforeSwap()` and `afterSwap()` hooks
-- CREATE2 deployment pattern for deterministic hook addresses
-- Ready to integrate when Uniswap v4 launches on Arbitrum mainnet
+**✅ Uniswap v4 is LIVE on Arbitrum One!**
+- **PoolManager**: `0x360e68faccca8ca495c1b759fd9eee466db9fb32`
+- **PositionManager**: `0xd88f38f930b7952f2db2432cb002e7abbf3dd869`
+- **UniversalRouter**: `0xa51afafe0263b40edaef0df8781ea9aa03e381a3`
 
-**Hook Capabilities (When v4 is Live):**
+**Current Implementation:**
+- ✅ `FlowraHook.sol` implements the BaseHook interface
+- ✅ FlowraCore connected to v4 PoolManager on Arbitrum
+- ✅ Automated DCA swaps via `beforeSwap()` and `afterSwap()` hooks
+- ✅ CREATE2 deployment pattern for deterministic hook addresses
+- 🔜 **Next**: Deploy FlowraHook and initialize USDC/WETH pool
+
+**Hook Capabilities:**
 - **Automated DCA Execution**: Swaps triggered by pool interactions (no keepers needed!)
 - **Liquidity-Based Swaps**: Execute trades only when sufficient pool liquidity exists
 - **Gas Optimization**: Batch multiple user swaps in single hook execution
 - **Slippage Protection**: Built-in 1% max slippage via hook logic
 
 **Why Hooks Matter:**
-Traditional DCA requires external keepers/bots → costly & centralized. With Uniswap v4 hooks, swaps execute automatically whenever anyone interacts with the pool → **trustless, permissionless, and capital-efficient**.
+Traditional DCA requires external keepers/bots → costly & centralized. With Uniswap v4 hooks, swaps execute **automatically** whenever anyone interacts with the pool → **trustless, permissionless, and capital-efficient**.
+
+**Architecture Benefits:**
+- 🔥 **Zero keeper costs** - Piggybacks on organic pool activity
+- 🛡️ **Decentralized execution** - No reliance on off-chain infrastructure
+- ⚡ **Gas efficient** - Amortizes costs across multiple user swaps
+- 🔒 **MEV resistant** - Execution within pool transactions
 
 ## 💡 Key Features
 
