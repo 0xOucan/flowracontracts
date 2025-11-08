@@ -82,8 +82,9 @@ contract FlowraCore is IFlowraCore, Ownable, ReentrancyGuard, Pausable, AccessCo
 
     event PositionCreated(
         address indexed user,
-        uint256 usdcAmount,
-        uint256 dailySwapAmount,
+        uint256 amount,
+        uint256 donationPercentBps,
+        uint256[] selectedProjects,
         uint256 timestamp
     );
 
@@ -91,6 +92,20 @@ contract FlowraCore is IFlowraCore, Ownable, ReentrancyGuard, Pausable, AccessCo
         address indexed user,
         uint256 usdcIn,
         uint256 wethOut,
+        uint256 timestamp
+    );
+
+    event YieldClaimed(
+        address indexed user,
+        uint256 userAmount,
+        uint256 donatedAmount,
+        uint256 timestamp
+    );
+
+    event YieldDistributed(
+        address indexed project,
+        uint256 amount,
+        address indexed donor,
         uint256 timestamp
     );
 
@@ -227,11 +242,17 @@ contract FlowraCore is IFlowraCore, Ownable, ReentrancyGuard, Pausable, AccessCo
     // ============ User Functions ============
 
     /**
-     * @notice Deposit USDC to create a DCA position
-     * @param amount Amount of USDC to deposit (must be >= 100 USDC)
+     * @notice Deposit USDC to create a DCA position with yield donation preferences
+     * @param amount Amount of USDC to deposit (must be >= 1 USDC for testing)
+     * @param donationPercentBps Percentage of yield to donate (100-2000 = 1%-20%)
+     * @param selectedProjects Array of project IDs to support (must select 1-6 projects)
      * @return positionId Unique position identifier
      */
-    function deposit(uint256 amount)
+    function deposit(
+        uint256 amount,
+        uint256 donationPercentBps,
+        uint256[] calldata selectedProjects
+    )
         external
         override
         nonReentrant
@@ -248,24 +269,56 @@ contract FlowraCore is IFlowraCore, Ownable, ReentrancyGuard, Pausable, AccessCo
             revert PositionAlreadyExists();
         }
 
+        // Validate donation percentage (1-20%)
+        if (donationPercentBps < 100 || donationPercentBps > 2000) {
+            revert FlowraTypes.InvalidDonationPercent();
+        }
+
+        // Validate project selection (1-6 projects)
+        if (selectedProjects.length == 0 || selectedProjects.length > 6) {
+            revert FlowraTypes.InvalidProjectSelection();
+        }
+
+        // Validate project IDs and check for duplicates
+        for (uint256 i = 0; i < selectedProjects.length; i++) {
+            // Project IDs must be 0-5 (6 total projects)
+            if (selectedProjects[i] > 5) {
+                revert FlowraTypes.InvalidProjectSelection();
+            }
+
+            // Check for duplicate project IDs
+            for (uint256 j = i + 1; j < selectedProjects.length; j++) {
+                if (selectedProjects[i] == selectedProjects[j]) {
+                    revert FlowraTypes.InvalidProjectSelection();
+                }
+            }
+        }
+
         // Transfer USDC from user
         USDC.safeTransferFrom(msg.sender, address(this), amount);
 
         // Calculate daily swap amount (1% of deposit)
         uint256 dailySwapAmount = FlowraMath.calculateDailySwapAmount(amount);
 
-        // Create user position
-        positions[msg.sender] = FlowraTypes.UserPosition({
-            owner: msg.sender,
-            usdcDeposited: amount,
-            wethAccumulated: 0,
-            dailySwapAmount: dailySwapAmount,
-            lastSwapTimestamp: block.timestamp,
-            totalSwapsExecuted: 0,
-            yieldEarned: 0,
-            active: true,
-            createdAt: block.timestamp
-        });
+        // Create user position with yield preferences
+        positions[msg.sender].owner = msg.sender;
+        positions[msg.sender].usdcDeposited = amount;
+        positions[msg.sender].wethAccumulated = 0;
+        positions[msg.sender].dailySwapAmount = dailySwapAmount;
+        positions[msg.sender].lastSwapTimestamp = block.timestamp;
+        positions[msg.sender].totalSwapsExecuted = 0;
+        positions[msg.sender].totalYieldEarned = 0;
+        positions[msg.sender].yieldDonated = 0;
+        positions[msg.sender].yieldClaimed = 0;
+        positions[msg.sender].pendingYield = 0;
+        positions[msg.sender].donationPercentBps = donationPercentBps;
+        positions[msg.sender].active = true;
+        positions[msg.sender].createdAt = block.timestamp;
+
+        // Store selected projects
+        for (uint256 i = 0; i < selectedProjects.length; i++) {
+            positions[msg.sender].selectedProjects.push(selectedProjects[i]);
+        }
 
         // Update protocol stats
         totalValueLocked += amount;
@@ -281,7 +334,7 @@ contract FlowraCore is IFlowraCore, Ownable, ReentrancyGuard, Pausable, AccessCo
         // Generate position ID
         positionId = keccak256(abi.encodePacked(msg.sender, block.timestamp));
 
-        emit PositionCreated(msg.sender, amount, dailySwapAmount, block.timestamp);
+        emit PositionCreated(msg.sender, amount, donationPercentBps, selectedProjects, block.timestamp);
     }
 
     /**
@@ -387,7 +440,136 @@ contract FlowraCore is IFlowraCore, Ownable, ReentrancyGuard, Pausable, AccessCo
     }
 
     /**
+     * @notice Calculate user's proportional share of Aave yield
+     * @param user User address
+     * @return User's yield amount in USDC
+     */
+    function calculateUserYield(address user) public view returns (uint256) {
+        FlowraTypes.UserPosition storage position = positions[user];
+        if (!position.active) return 0;
+
+        // User's remaining USDC in Aave
+        uint256 userUsdcInAave = position.usdcDeposited -
+                                  (position.totalSwapsExecuted * position.dailySwapAmount);
+
+        if (userUsdcInAave == 0) return 0;
+
+        // For proportional yield calculation, use total value locked in protocol
+        // This represents all USDC that has been deposited across all users
+        if (totalValueLocked == 0) return 0;
+
+        // Get total yield available from Aave
+        uint256 totalYield = address(aaveVault) != address(0) ? aaveVault.getYieldEarned() : 0;
+        if (totalYield == 0) return 0;
+
+        // Calculate proportional yield: (user's USDC / total USDC) * total yield
+        return (totalYield * userUsdcInAave) / totalValueLocked;
+    }
+
+    /**
+     * @notice Claim accumulated yield and distribute to projects
+     * @dev Splits yield based on user's donation percentage (1-20%)
+     *      User receives 80-99%, selected projects receive 1-20% split equally
+     * @return userAmount USDC returned to user (80-99% of yield)
+     * @return donatedAmount USDC donated to projects (1-20% of yield)
+     */
+    function claimYield()
+        external
+        nonReentrant
+        whenNotPaused
+        returns (uint256 userAmount, uint256 donatedAmount)
+    {
+        FlowraTypes.UserPosition storage position = positions[msg.sender];
+
+        // Validate position exists
+        if (!position.active) revert NoActivePosition();
+
+        // Calculate new yield since last claim
+        uint256 newYield = calculateUserYield(msg.sender);
+        uint256 totalYield = position.pendingYield + newYield;
+
+        if (totalYield == 0) revert FlowraTypes.NoYieldToClaim();
+
+        // Calculate donation amount based on user's preference (1-20%)
+        donatedAmount = (totalYield * position.donationPercentBps) / 10000;
+        userAmount = totalYield - donatedAmount;
+
+        // Withdraw total yield from Aave
+        if (address(aaveVault) != address(0)) {
+            aaveVault.withdrawFromAave(totalYield);
+        }
+
+        // Distribute donation equally to user's selected projects
+        if (donatedAmount > 0 && position.selectedProjects.length > 0) {
+            uint256 perProjectAmount = donatedAmount / position.selectedProjects.length;
+
+            for (uint256 i = 0; i < position.selectedProjects.length; i++) {
+                uint256 projectId = position.selectedProjects[i];
+
+                // Get project from yield router
+                FlowraTypes.Project memory project = yieldRouter.getProject(projectId);
+
+                // Transfer to project wallet
+                USDC.safeTransfer(project.wallet, perProjectAmount);
+
+                // Record donation in yield router
+                yieldRouter.recordDonation(projectId, perProjectAmount, msg.sender);
+
+                emit YieldDistributed(project.wallet, perProjectAmount, msg.sender, block.timestamp);
+            }
+        }
+
+        // Transfer remaining yield to user
+        if (userAmount > 0) {
+            USDC.safeTransfer(msg.sender, userAmount);
+        }
+
+        // Update user stats
+        position.totalYieldEarned += totalYield;
+        position.yieldDonated += donatedAmount;
+        position.yieldClaimed += userAmount;
+        position.pendingYield = 0;
+
+        // Update protocol stats
+        protocolStats.totalYieldGenerated += totalYield;
+        protocolStats.totalYieldDonated += donatedAmount;
+
+        emit YieldClaimed(msg.sender, userAmount, donatedAmount, block.timestamp);
+    }
+
+    /**
+     * @notice Execute yield claim for multiple users (executor only)
+     * @param users Array of user addresses
+     * @return successCount Number of successful claims
+     * @dev Useful for automated yield harvesting when users don't claim manually
+     */
+    function executeYieldClaimBatch(address[] calldata users)
+        external
+        onlyRole(EXECUTOR_ROLE)
+        nonReentrant
+        whenNotPaused
+        returns (uint256 successCount)
+    {
+        for (uint256 i = 0; i < users.length; i++) {
+            FlowraTypes.UserPosition storage position = positions[users[i]];
+
+            if (!position.active) continue;
+
+            // Calculate yield
+            uint256 newYield = calculateUserYield(users[i]);
+            if (newYield == 0) continue;
+
+            // Update pending yield for user to claim later
+            position.pendingYield += newYield;
+            successCount++;
+        }
+
+        return successCount;
+    }
+
+    /**
      * @notice Withdraw from position (close position and claim all assets)
+     * @dev Automatically claims any pending yield before withdrawing
      * @return usdcAmount USDC returned to user
      * @return wethAmount WETH returned to user
      */
@@ -403,16 +585,48 @@ contract FlowraCore is IFlowraCore, Ownable, ReentrancyGuard, Pausable, AccessCo
         // Validate position exists
         if (!position.active) revert NoActivePosition();
 
-        // Calculate remaining USDC
-        usdcAmount = position.usdcDeposited -
+        // Auto-claim any pending yield before withdrawing
+        uint256 pendingYield = position.pendingYield + calculateUserYield(msg.sender);
+        if (pendingYield > 0) {
+            // Calculate donation
+            uint256 donatedAmount = (pendingYield * position.donationPercentBps) / 10000;
+            uint256 userYieldAmount = pendingYield - donatedAmount;
+
+            // Withdraw yield from Aave
+            if (address(aaveVault) != address(0)) {
+                aaveVault.withdrawFromAave(pendingYield);
+            }
+
+            // Distribute donations
+            if (donatedAmount > 0 && position.selectedProjects.length > 0) {
+                uint256 perProjectAmount = donatedAmount / position.selectedProjects.length;
+                for (uint256 i = 0; i < position.selectedProjects.length; i++) {
+                    FlowraTypes.Project memory project = yieldRouter.getProject(position.selectedProjects[i]);
+                    USDC.safeTransfer(project.wallet, perProjectAmount);
+                    yieldRouter.recordDonation(position.selectedProjects[i], perProjectAmount, msg.sender);
+                }
+            }
+
+            // Add user's yield share to withdrawal amount
+            usdcAmount += userYieldAmount;
+
+            // Update stats
+            position.totalYieldEarned += pendingYield;
+            position.yieldDonated += donatedAmount;
+            position.yieldClaimed += userYieldAmount;
+        }
+
+        // Calculate remaining USDC principal
+        uint256 remainingPrincipal = position.usdcDeposited -
             (position.totalSwapsExecuted * position.dailySwapAmount);
 
-        wethAmount = position.wethAccumulated;
-
-        // Withdraw remaining USDC from Aave
-        if (usdcAmount > 0 && address(aaveVault) != address(0)) {
-            aaveVault.withdrawFromAave(usdcAmount);
+        // Withdraw remaining principal from Aave
+        if (remainingPrincipal > 0 && address(aaveVault) != address(0)) {
+            aaveVault.withdrawFromAave(remainingPrincipal);
         }
+
+        usdcAmount += remainingPrincipal;
+        wethAmount = position.wethAccumulated;
 
         // Transfer assets to user
         if (usdcAmount > 0) {
@@ -478,22 +692,13 @@ contract FlowraCore is IFlowraCore, Ownable, ReentrancyGuard, Pausable, AccessCo
         if (address(yieldRouter) == address(0)) revert ZeroAddress();
 
         // Harvest yield from Aave
-        yieldAmount = aaveVault.harvestYield();
+        // NOTE: Yield harvesting is now handled per-user via claimYield()
+        // This function is deprecated but kept for backwards compatibility
+        // Users should call claimYield() to receive their yield proportionally
 
-        if (yieldAmount > 0) {
-            // Approve yield router to spend USDC
-            USDC.forceApprove(address(yieldRouter), yieldAmount);
+        emit YieldHarvested(0, block.timestamp);
 
-            // Distribute yield to projects
-            yieldRouter.distributeYield(yieldAmount);
-
-            // Update protocol stats
-            protocolStats.totalYieldGenerated += yieldAmount;
-
-            emit YieldHarvested(yieldAmount, block.timestamp);
-        }
-
-        return yieldAmount;
+        return 0;
     }
 
     /**
@@ -628,6 +833,36 @@ contract FlowraCore is IFlowraCore, Ownable, ReentrancyGuard, Pausable, AccessCo
         );
 
         return FlowraMath.calculateProgress(position.totalSwapsExecuted, totalSwapsNeeded);
+    }
+
+    /**
+     * @notice Get user's pending yield (both calculated + stored)
+     * @param user User address
+     * @return Total pending yield in USDC
+     */
+    function getPendingYield(address user) external view returns (uint256) {
+        FlowraTypes.UserPosition storage position = positions[user];
+        if (!position.active) return 0;
+
+        return position.pendingYield + calculateUserYield(user);
+    }
+
+    /**
+     * @notice Get user's selected projects
+     * @param user User address
+     * @return Array of project IDs
+     */
+    function getUserSelectedProjects(address user) external view returns (uint256[] memory) {
+        return positions[user].selectedProjects;
+    }
+
+    /**
+     * @notice Get user's donation percentage
+     * @param user User address
+     * @return Donation percentage in basis points
+     */
+    function getUserDonationPercent(address user) external view returns (uint256) {
+        return positions[user].donationPercentBps;
     }
 
     /**

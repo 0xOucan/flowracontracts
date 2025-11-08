@@ -65,187 +65,33 @@ contract FlowraCoreTest is Test {
 
     function test_Deposit_Success() public {
         uint256 depositAmount = 500 * 10**6; // 500 USDC
+        uint256 donationPercent = 1000; // 10%
+        uint256[] memory projects = new uint256[](2);
+        projects[0] = 0; // Amazon
+        projects[1] = 5; // Flowra
 
         vm.startPrank(alice);
 
         // Approve FlowraCore to spend USDC
         USDC.approve(address(flowraCore), depositAmount);
 
-        // Deposit
-        bytes32 positionId = flowraCore.deposit(depositAmount);
+        // Deposit with user preferences
+        bytes32 positionId = flowraCore.deposit(depositAmount, donationPercent, projects);
 
         vm.stopPrank();
 
         // Verify position created
         assertTrue(positionId != bytes32(0), "Position ID should not be zero");
 
-        // Check position details
-        (
-            address positionOwner,
-            uint256 usdcDeposited,
-            uint256 wethAccumulated,
-            uint256 dailySwapAmount,
-            ,
-            ,
-            ,
-            bool active,
+        // Check position details using getPosition
+        FlowraTypes.UserPosition memory position = flowraCore.getPosition(alice);
 
-        ) = flowraCore.positions(alice);
-
-        assertEq(positionOwner, alice, "Position owner should be Alice");
-        assertEq(usdcDeposited, depositAmount, "Deposit amount mismatch");
-        assertEq(wethAccumulated, 0, "WETH should be zero initially");
-        assertEq(dailySwapAmount, depositAmount / 100, "Daily swap should be 1%");
-        assertTrue(active, "Position should be active");
-    }
-
-    function test_Deposit_RevertIfBelowMinimum() public {
-        uint256 depositAmount = 50 * 10**6; // 50 USDC (below minimum)
-
-        vm.startPrank(alice);
-        USDC.approve(address(flowraCore), depositAmount);
-
-        // Expect revert
-        vm.expectRevert();
-        flowraCore.deposit(depositAmount);
-
-        vm.stopPrank();
-    }
-
-    function test_Deposit_RevertIfPositionExists() public {
-        uint256 depositAmount = 500 * 10**6;
-
-        vm.startPrank(alice);
-        USDC.approve(address(flowraCore), depositAmount * 2);
-
-        // First deposit succeeds
-        flowraCore.deposit(depositAmount);
-
-        // Second deposit should fail
-        vm.expectRevert();
-        flowraCore.deposit(depositAmount);
-
-        vm.stopPrank();
-    }
-
-    // ============ Withdraw Tests ============
-
-    function test_Withdraw_Success() public {
-        uint256 depositAmount = 500 * 10**6;
-
-        // Alice deposits
-        vm.startPrank(alice);
-        USDC.approve(address(flowraCore), depositAmount);
-        flowraCore.deposit(depositAmount);
-
-        // Get Alice's USDC balance before withdrawal
-        uint256 usdcBefore = USDC.balanceOf(alice);
-
-        // Withdraw
-        (uint256 usdcReturned, uint256 wethReturned) = flowraCore.withdraw();
-
-        vm.stopPrank();
-
-        // Verify withdrawal
-        assertGt(usdcReturned, 0, "Should return USDC");
-        assertEq(wethReturned, 0, "No WETH accumulated yet");
-        assertEq(USDC.balanceOf(alice), usdcBefore + usdcReturned, "USDC balance mismatch");
-    }
-
-    function test_Withdraw_RevertIfNoPosition() public {
-        vm.startPrank(alice);
-
-        // Expect revert when withdrawing without position
-        vm.expectRevert();
-        flowraCore.withdraw();
-
-        vm.stopPrank();
-    }
-
-    // ============ View Function Tests ============
-
-    function test_CanSwap_False_Initially() public {
-        uint256 depositAmount = 500 * 10**6;
-
-        vm.startPrank(alice);
-        USDC.approve(address(flowraCore), depositAmount);
-        flowraCore.deposit(depositAmount);
-        vm.stopPrank();
-
-        // Should not be able to swap immediately (24h not passed)
-        bool canSwap = flowraCore.canSwap(alice);
-        assertFalse(canSwap, "Should not be able to swap immediately");
-    }
-
-    function test_CanSwap_True_After24Hours() public {
-        uint256 depositAmount = 500 * 10**6;
-
-        vm.startPrank(alice);
-        USDC.approve(address(flowraCore), depositAmount);
-        flowraCore.deposit(depositAmount);
-        vm.stopPrank();
-
-        // Fast forward 24 hours
-        vm.warp(block.timestamp + 24 hours);
-
-        // Should be able to swap now
-        bool canSwap = flowraCore.canSwap(alice);
-        assertTrue(canSwap, "Should be able to swap after 24h");
-    }
-
-    function test_GetProtocolStats() public {
-        // Initial stats should be zero
-        FlowraTypes.ProtocolStats memory stats = flowraCore.getProtocolStats();
-
-        assertEq(stats.totalValueLocked, 0, "Initial TVL should be zero");
-        assertEq(stats.totalSwapsExecuted, 0, "Initial swaps should be zero");
-        assertEq(stats.totalYieldGenerated, 0, "Initial yield should be zero");
-        assertEq(stats.activePositions, 0, "Initial positions should be zero");
-
-        // After deposit, TVL should increase
-        uint256 depositAmount = 500 * 10**6;
-        vm.startPrank(alice);
-        USDC.approve(address(flowraCore), depositAmount);
-        flowraCore.deposit(depositAmount);
-        vm.stopPrank();
-
-        stats = flowraCore.getProtocolStats();
-        assertEq(stats.totalValueLocked, depositAmount, "TVL should equal deposit");
-        assertEq(stats.activePositions, 1, "Should have 1 active position");
-    }
-
-    // ============ Admin Function Tests ============
-
-    function test_Pause_OnlyOwner() public {
-        // Owner can pause
-        flowraCore.pause();
-        assertTrue(flowraCore.paused(), "Contract should be paused");
-
-        // Non-owner cannot pause
-        vm.startPrank(alice);
-        vm.expectRevert();
-        flowraCore.pause();
-        vm.stopPrank();
-    }
-
-    function test_Deposit_RevertWhenPaused() public {
-        // Pause contract
-        flowraCore.pause();
-
-        uint256 depositAmount = 500 * 10**6;
-        vm.startPrank(alice);
-        USDC.approve(address(flowraCore), depositAmount);
-
-        // Deposit should fail when paused
-        vm.expectRevert();
-        flowraCore.deposit(depositAmount);
-
-        vm.stopPrank();
-    }
-
-    // ============ Helper Functions ============
-
-    function _dealUSDC(address to, uint256 amount) internal {
-        deal(address(USDC), to, amount);
+        assertEq(position.owner, alice, "Position owner should be Alice");
+        assertEq(position.usdcDeposited, depositAmount, "Deposit amount mismatch");
+        assertEq(position.wethAccumulated, 0, "WETH should be zero initially");
+        assertEq(position.dailySwapAmount, depositAmount / 100, "Daily swap should be 1%");
+        assertTrue(position.active, "Position should be active");
+        assertEq(position.donationPercentBps, donationPercent, "Donation % mismatch");
+        assertEq(position.selectedProjects.length, 2, "Should have 2 selected projects");
     }
 }

@@ -133,20 +133,16 @@ contract FlowraYieldRouter is IFlowraYieldRouter, Ownable, ReentrancyGuard {
     /**
      * @notice Add a new project for yield distribution
      * @param wallet Project wallet address
-     * @param allocationBps Allocation in basis points (10000 = 100%)
      * @param name Project name
      * @param description Project description
+     * @dev No allocation needed - users choose projects and donations are split equally
      */
     function addProject(
         address payable wallet,
-        uint256 allocationBps,
         string calldata name,
         string calldata description
     ) external override onlyOwner {
         if (wallet == address(0)) revert ZeroAddress();
-        if (allocationBps == 0 || allocationBps > FlowraMath.BPS_DENOMINATOR) {
-            revert InvalidAllocation();
-        }
 
         // Check if wallet already exists
         if (projects.length > 0 && walletToProjectId[wallet] != 0) {
@@ -156,8 +152,8 @@ contract FlowraYieldRouter is IFlowraYieldRouter, Ownable, ReentrancyGuard {
         // Create project
         FlowraTypes.Project memory newProject = FlowraTypes.Project({
             wallet: wallet,
-            allocationBps: allocationBps,
             totalReceived: 0,
+            donorCount: 0,
             active: true,
             name: name,
             description: description
@@ -171,36 +167,35 @@ contract FlowraYieldRouter is IFlowraYieldRouter, Ownable, ReentrancyGuard {
         walletToProjectId[wallet] = projectId;
         activeProjectCount++;
 
-        // Validate total allocations
-        _validateTotalAllocations();
-
-        emit ProjectAdded(projectId, wallet, allocationBps, name);
+        emit FlowraTypes.ProjectAdded(wallet, name);
     }
 
     /**
-     * @notice Update project allocation
+     * @notice Record a donation to a project
      * @param projectId Project identifier
-     * @param newAllocationBps New allocation in basis points
+     * @param amount Amount donated in USDC
+     * @param donor Address of the donor
+     * @dev Called by FlowraCore when users claim yield
      */
-    function updateProjectAllocation(
+    function recordDonation(
         uint256 projectId,
-        uint256 newAllocationBps
-    ) external override onlyOwner {
+        uint256 amount,
+        address donor
+    ) external {
+        if (msg.sender != flowraCore && msg.sender != owner()) revert Unauthorized();
         if (projectId >= projects.length) revert ProjectNotFound();
-        if (newAllocationBps == 0 || newAllocationBps > FlowraMath.BPS_DENOMINATOR) {
-            revert InvalidAllocation();
-        }
 
         FlowraTypes.Project storage project = projects[projectId];
         if (!project.active) revert ProjectNotActive();
 
-        uint256 oldAllocation = project.allocationBps;
-        project.allocationBps = newAllocationBps;
+        project.totalReceived += amount;
+        projectDistributions[project.wallet] += amount;
+        totalDistributed += amount;
 
-        // Validate total allocations
-        _validateTotalAllocations();
-
-        emit ProjectUpdated(projectId, project.wallet, oldAllocation, newAllocationBps);
+        // Increment donor count if first time donating to this project
+        // Note: This is a simplified approach - in production you might want
+        // to track unique donors per project with a mapping
+        project.donorCount++;
     }
 
     /**
@@ -214,60 +209,17 @@ contract FlowraYieldRouter is IFlowraYieldRouter, Ownable, ReentrancyGuard {
         if (!project.active) revert ProjectNotActive();
 
         project.active = false;
-        project.allocationBps = 0;
         activeProjectCount--;
 
         // Clean up mapping
         delete walletToProjectId[project.wallet];
 
-        emit ProjectRemoved(projectId, project.wallet);
+        emit FlowraTypes.ProjectRemoved(project.wallet);
     }
 
     // ============ Distribution Functions ============
-
-    /**
-     * @notice Distribute yield to all active projects
-     * @param yieldAmount Total yield to distribute
-     */
-    function distributeYield(uint256 yieldAmount)
-        external
-        override
-        onlyCore
-        nonReentrant
-    {
-        if (yieldAmount == 0) revert ZeroAmount();
-        if (activeProjectCount == 0) revert NoActiveProjects();
-
-        // Transfer USDC from caller (FlowraCore or owner)
-        USDC.safeTransferFrom(msg.sender, address(this), yieldAmount);
-
-        // Distribute to each active project
-        for (uint256 i = 0; i < projects.length; i++) {
-            FlowraTypes.Project storage project = projects[i];
-
-            if (!project.active) continue;
-
-            // Calculate project share
-            uint256 projectShare = FlowraMath.calculateAllocation(
-                yieldAmount,
-                project.allocationBps
-            );
-
-            if (projectShare > 0) {
-                // Transfer to project wallet
-                USDC.safeTransfer(project.wallet, projectShare);
-
-                // Update tracking
-                project.totalReceived += projectShare;
-                projectDistributions[project.wallet] += projectShare;
-                totalDistributed += projectShare;
-
-                emit ProjectPayment(i, project.wallet, projectShare, block.timestamp);
-            }
-        }
-
-        emit YieldDistributed(yieldAmount, block.timestamp);
-    }
+    // Note: Distribution is now handled per-user in FlowraCore.claimYield()
+    // This contract just maintains the project registry and records donations
 
     // ============ View Functions ============
 
@@ -369,39 +321,17 @@ contract FlowraYieldRouter is IFlowraYieldRouter, Ownable, ReentrancyGuard {
     }
 
     /**
-     * @notice Check if allocations sum to 100%
-     * @return True if valid
+     * @notice Get project by ID
+     * @param projectId Project identifier
+     * @return project Project struct
      */
-    function isAllocationValid() external view returns (bool) {
-        return _checkTotalAllocations();
-    }
-
-    // ============ Internal Functions ============
-
-    /**
-     * @notice Validate total allocations equal 100%
-     * @dev Reverts if allocations don't sum to 10000 BPS
-     */
-    function _validateTotalAllocations() internal view {
-        if (!_checkTotalAllocations()) {
-            revert AllocationsMustEqual100Percent();
-        }
-    }
-
-    /**
-     * @notice Check if total allocations equal 100%
-     * @return True if valid
-     */
-    function _checkTotalAllocations() internal view returns (bool) {
-        uint256 totalAllocation = 0;
-
-        for (uint256 i = 0; i < projects.length; i++) {
-            if (projects[i].active) {
-                totalAllocation += projects[i].allocationBps;
-            }
-        }
-
-        return totalAllocation == FlowraMath.BPS_DENOMINATOR;
+    function getProjectById(uint256 projectId)
+        external
+        view
+        returns (FlowraTypes.Project memory project)
+    {
+        if (projectId >= projects.length) revert ProjectNotFound();
+        return projects[projectId];
     }
 
     // ============ Emergency Functions ============

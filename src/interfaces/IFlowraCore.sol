@@ -10,11 +10,17 @@ import {FlowraTypes} from "../libraries/FlowraTypes.sol";
  */
 interface IFlowraCore {
     /**
-     * @notice Deposit USDC to create a DCA position
+     * @notice Deposit USDC to create a DCA position with yield donation preferences
      * @param amount Amount of USDC to deposit
+     * @param donationPercentBps Percentage of yield to donate (100-2000 = 1%-20%)
+     * @param selectedProjects Array of project IDs to support (1-6 projects)
      * @return positionId Unique position identifier
      */
-    function deposit(uint256 amount) external returns (bytes32 positionId);
+    function deposit(
+        uint256 amount,
+        uint256 donationPercentBps,
+        uint256[] calldata selectedProjects
+    ) external returns (bytes32 positionId);
 
     /**
      * @notice Withdraw from position (WETH + remaining USDC)

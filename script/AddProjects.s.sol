@@ -27,42 +27,59 @@ contract AddProjects is Script {
     }
 
     /**
-     * @notice Configure your projects here
-     * @dev Allocations must sum to 10000 (100%)
+     * @notice Configure your 6 projects here
+     * @dev Projects are chosen by users - no fixed allocations
+     *      Users select 1-6 projects and donations are split equally among selected projects
      */
     function getProjects() internal pure returns (ProjectConfig[] memory) {
-        ProjectConfig[] memory projectsConfig = new ProjectConfig[](4);
+        ProjectConfig[] memory projectsConfig = new ProjectConfig[](6);
 
-        // Project 1: Climate Initiatives (40%)
+        // Project 0: Amazon Rainforest Restoration
         projectsConfig[0] = ProjectConfig({
             wallet: payable(0x0000000000000000000000000000000000000001), // TODO: Replace with actual wallet
-            allocationBps: 4000, // 40%
-            name: "Climate Action Fund",
-            description: "Supporting renewable energy and carbon offset projects"
+            allocationBps: 0, // Not used - users choose projects
+            name: "Amazon Rainforest Restoration",
+            description: "Reforestation efforts in the Amazon rainforest, Brazil"
         });
 
-        // Project 2: Developer Tooling (30%)
+        // Project 1: Ocean Plastic Removal
         projectsConfig[1] = ProjectConfig({
             wallet: payable(0x0000000000000000000000000000000000000002), // TODO: Replace with actual wallet
-            allocationBps: 3000, // 30%
-            name: "Open Source Tooling",
-            description: "Funding developer tools and infrastructure"
+            allocationBps: 0,
+            name: "Ocean Plastic Removal",
+            description: "Ocean cleanup initiatives in the Pacific Ocean"
         });
 
-        // Project 3: Education (20%)
+        // Project 2: Solar Power for Villages
         projectsConfig[2] = ProjectConfig({
             wallet: payable(0x0000000000000000000000000000000000000003), // TODO: Replace with actual wallet
-            allocationBps: 2000, // 20%
-            name: "Blockchain Education",
-            description: "Educational resources and workshops"
+            allocationBps: 0,
+            name: "Solar Power for Villages",
+            description: "Renewable energy projects in rural Kenya"
         });
 
-        // Project 4: Research (10%)
+        // Project 3: Regenerative Farming Initiative
         projectsConfig[3] = ProjectConfig({
             wallet: payable(0x0000000000000000000000000000000000000004), // TODO: Replace with actual wallet
-            allocationBps: 1000, // 10%
-            name: "Protocol Research",
-            description: "Funding research on DeFi protocols and mechanisms"
+            allocationBps: 0,
+            name: "Regenerative Farming Initiative",
+            description: "Sustainable agriculture programs in India"
+        });
+
+        // Project 4: Coral Reef Restoration
+        projectsConfig[4] = ProjectConfig({
+            wallet: payable(0x0000000000000000000000000000000000000005), // TODO: Replace with actual wallet
+            allocationBps: 0,
+            name: "Coral Reef Restoration",
+            description: "Coral reef conservation in the Great Barrier Reef"
+        });
+
+        // Project 5: Flowra (Default selected in UI)
+        projectsConfig[5] = ProjectConfig({
+            wallet: payable(0x0000000000000000000000000000000000000006), // TODO: Replace with actual wallet
+            allocationBps: 0,
+            name: "Flowra",
+            description: "Open source DeFi protocol for public goods funding"
         });
 
         return projectsConfig;
@@ -86,28 +103,20 @@ contract AddProjects is Script {
 
         ProjectConfig[] memory projects = getProjects();
 
-        // Validate total allocations
-        uint256 totalAllocation = 0;
-        for (uint256 i = 0; i < projects.length; i++) {
-            totalAllocation += projects[i].allocationBps;
-        }
-
-        require(totalAllocation == 10000, "Allocations must sum to 100% (10000 BPS)");
-        console2.log("Total allocation: 100% (10000 BPS)");
+        console2.log("Total Projects to Add:", projects.length);
+        console2.log("Note: Users will select projects and donation % during deposit");
         console2.log("");
 
         vm.startBroadcast(deployerPrivateKey);
 
         // Add each project
         for (uint256 i = 0; i < projects.length; i++) {
-            console2.log("Adding Project:", projects[i].name);
+            console2.log("Adding Project", i, ":", projects[i].name);
             console2.log("  Wallet:", projects[i].wallet);
-            console2.log("  Allocation (BPS):", projects[i].allocationBps);
             console2.log("  Description:", projects[i].description);
 
             yieldRouter.addProject(
                 projects[i].wallet,
-                projects[i].allocationBps,
                 projects[i].name,
                 projects[i].description
             );
@@ -122,12 +131,12 @@ contract AddProjects is Script {
         console2.log("Projects Added Successfully!");
         console2.log("==============================================");
         console2.log("Total Projects:", projects.length);
-        console2.log("==============================================\n");
-
-        // Verify allocations
-        console2.log("Verifying allocations...");
-        bool isValid = yieldRouter.isAllocationValid();
-        console2.log("Allocation Valid:", isValid ? "YES" : "NO");
         console2.log("");
+        console2.log("How it works:");
+        console2.log("- Users select 1-6 projects during deposit");
+        console2.log("- Users choose 1-20% of their yield to donate");
+        console2.log("- Donations are split equally among selected projects");
+        console2.log("- Users keep 80-99% of their yield");
+        console2.log("==============================================\n");
     }
 }
