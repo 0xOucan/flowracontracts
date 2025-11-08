@@ -70,6 +70,7 @@ Flowra enables users to:
 - **Executor Address**: `0xcce721fC201D4571A5AC826A3e0908F81807fAa5` (has EXECUTOR_ROLE)
 - **6 Public Goods Projects**: ✅ Added and ready
 - **Aave v3 Integration**: ✅ Connected to Arbitrum Aave Pool
+- **Uniswap v4 Hook**: 🔜 Ready to deploy (use `./deploy-hook.sh`)
 - **All contracts verified** on Arbiscan
 
 ## 📦 Contracts
@@ -211,10 +212,26 @@ forge script script/AddProjects.s.sol \
   --broadcast
 ```
 
+**Option 4: Deploy FlowraHook (Uniswap v4 Integration)**
+
+Deploy the automated DCA hook:
+```bash
+./deploy-hook.sh
+```
+
+This will:
+1. ✅ Deploy FlowraHook to Arbitrum
+2. ✅ Connect to Uniswap v4 PoolManager
+3. ✅ Link hook to FlowraCore
+4. ✅ Verify on Arbiscan
+
+See [HOOK_DEPLOYMENT_GUIDE.md](./HOOK_DEPLOYMENT_GUIDE.md) for detailed instructions.
+
 **Note**:
 - Deployment addresses are saved to `deployments/arbitrum-mainnet.json`
+- Hook deployment saved to `deployments/arbitrum-hook.json`
 - You'll be prompted for your wallet password during deployment
-- Recommended minimum balance: 0.05 ETH on Arbitrum (actual cost ~0.0001 ETH)
+- Recommended minimum balance: 0.05 ETH on Arbitrum (actual cost ~0.0002 ETH)
 
 ## 🔧 Network Configuration
 
