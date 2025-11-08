@@ -22,7 +22,7 @@ contract DeployHook is Script {
     // Arbitrum mainnet addresses
     address constant USDC = 0xaf88d065e77c8cC2239327C5EDb3A432268e5831;
     address constant WETH = 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1;
-    address constant POOL_MANAGER = 0x360e68faCcca8cA495c1B759Fd9EEe466db9FB32;
+    address constant POOL_MANAGER = 0x360E68faCcca8cA495c1B759Fd9EEe466db9FB32;
 
     function run() external {
         // Get deployer address from environment
