@@ -11,7 +11,8 @@ import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {IFlowraCore} from "./interfaces/IFlowraCore.sol";
 import {IFlowraAaveVault} from "./interfaces/IFlowraAaveVault.sol";
 import {IFlowraYieldRouter} from "./interfaces/IFlowraYieldRouter.sol";
-import {FlowraTypes} from "./libraries/FlowraTypes.sol";
+import {IPoolManager} from "./interfaces/IPoolManager.sol";
+import {FlowraTypes, Currency} from "./libraries/FlowraTypes.sol";
 import {FlowraMath} from "./libraries/FlowraMath.sol";
 
 /**
@@ -64,6 +65,19 @@ contract FlowraCore is IFlowraCore, Ownable, ReentrancyGuard, Pausable, AccessCo
     /// @notice Hook contract address (for authorized swaps)
     address public hookContract;
 
+    /// @notice Uniswap v4 PoolManager
+    IPoolManager public poolManager;
+
+    /// @notice USDC/WETH pool key for Uniswap v4
+    IPoolManager.PoolKey public poolKey;
+
+    /// @notice Swap interval in seconds (configurable by admin)
+    /// @dev Default is 300 seconds (5 minutes) for testing, use 86400 (24h) for production
+    uint256 public swapInterval;
+
+    /// @notice Maximum slippage tolerance in basis points (1% = 100 BPS)
+    uint256 public maxSlippageBps;
+
     // ============ Events ============
 
     event PositionCreated(
@@ -101,6 +115,9 @@ contract FlowraCore is IFlowraCore, Ownable, ReentrancyGuard, Pausable, AccessCo
     event VaultUpdated(address indexed oldVault, address indexed newVault);
     event YieldRouterUpdated(address indexed oldRouter, address indexed newRouter);
     event HookUpdated(address indexed oldHook, address indexed newHook);
+    event PoolManagerUpdated(address indexed oldManager, address indexed newManager);
+    event SwapIntervalUpdated(uint256 oldInterval, uint256 newInterval);
+    event MaxSlippageUpdated(uint256 oldSlippage, uint256 newSlippage);
 
     // ============ Errors ============
 
@@ -120,15 +137,24 @@ contract FlowraCore is IFlowraCore, Ownable, ReentrancyGuard, Pausable, AccessCo
      * @notice Initialize FlowraCore with Arbitrum token addresses
      * @param _usdc USDC token address (0xaf88d065e77c8cC2239327C5EDb3A432268e5831)
      * @param _weth WETH token address (0x82aF49447D8a07e3bd95BD0d56f35241523fBab1)
+     * @param _poolManager Uniswap v4 PoolManager address (0x360e68faccca8ca495c1b759fd9eee466db9fb32)
      */
     constructor(
         address _usdc,
-        address _weth
+        address _weth,
+        address _poolManager
     ) Ownable(msg.sender) {
-        if (_usdc == address(0) || _weth == address(0)) revert ZeroAddress();
+        if (_usdc == address(0) || _weth == address(0) || _poolManager == address(0)) revert ZeroAddress();
 
         USDC = IERC20(_usdc);
         WETH = IERC20(_weth);
+        poolManager = IPoolManager(_poolManager);
+
+        // Initialize swap interval to 5 minutes (300 seconds) for testing
+        swapInterval = FlowraMath.DEFAULT_SWAP_INTERVAL;
+
+        // Initialize max slippage to 1% (100 basis points)
+        maxSlippageBps = FlowraMath.MAX_SLIPPAGE_BPS;
 
         // Grant DEFAULT_ADMIN_ROLE to deployer for role management
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
@@ -301,22 +327,13 @@ contract FlowraCore is IFlowraCore, Ownable, ReentrancyGuard, Pausable, AccessCo
             aaveVault.withdrawFromAave(swapAmount);
         }
 
-        // Execute swap via Uniswap v4 (simplified - actual implementation would interact with pool manager)
-        // For now, we'll emit an event and the hook will handle the actual swap
-        // In production, this would call the Uniswap v4 PoolManager with swap parameters
-
-        // NOTE: Actual swap execution would happen through Uniswap v4 integration
-        // This is a placeholder for the swap logic that will be completed when integrating with the hook
-
-        // For demonstration, we'll assume swap succeeded and update position
-        // In reality, the WETH would come from the Uniswap pool via the hook
+        // Execute swap via Uniswap v4
+        amountOut = _executeUniswapSwap(swapAmount);
 
         // Update position
         position.lastSwapTimestamp = block.timestamp;
         position.totalSwapsExecuted++;
-
-        // Track WETH accumulated (placeholder - actual amount from swap)
-        // position.wethAccumulated += amountOut;
+        position.wethAccumulated += amountOut;
 
         // Update protocol stats
         protocolStats.totalSwapsExecuted++;
@@ -324,6 +341,49 @@ contract FlowraCore is IFlowraCore, Ownable, ReentrancyGuard, Pausable, AccessCo
         emit SwapExecuted(user, swapAmount, amountOut, block.timestamp);
 
         return amountOut;
+    }
+
+    /**
+     * @notice Execute swap through Uniswap v4 PoolManager
+     * @param usdcAmount Amount of USDC to swap
+     * @return wethAmount Amount of WETH received
+     * @dev This is a simplified implementation. For production, consider:
+     *      1. Using Uniswap UniversalRouter for better routing
+     *      2. Implementing proper unlock callback pattern
+     *      3. Adding MEV protection
+     *      4. Using TWAP/oracle for price validation
+     */
+    function _executeUniswapSwap(uint256 usdcAmount) internal returns (uint256 wethAmount) {
+        // IMPORTANT: This is a simplified direct swap implementation
+        // Uniswap v4 uses an "unlock" pattern for swaps, which is more complex
+        // For a production implementation, you should:
+        // 1. Use the unlock() function with a callback
+        // 2. Implement unlockCallback() to handle the swap logic
+        // 3. Properly handle balance deltas and settlements
+
+        // For now, we'll use a direct approach that works for testing
+        // TODO: Replace with proper v4 unlock pattern for production
+
+        try poolManager.swap(
+            poolKey,
+            IPoolManager.SwapParams({
+                zeroForOne: true, // USDC (currency0) → WETH (currency1)
+                amountSpecified: int256(usdcAmount),
+                sqrtPriceLimitX96: 0 // No price limit (not recommended for production)
+            }),
+            "" // No hook data
+        ) returns (int256 delta) {
+            // Delta is negative for amount out (WETH received)
+            wethAmount = uint256(-delta);
+
+            // Validate we received some WETH
+            if (wethAmount == 0) revert SwapFailed();
+
+            return wethAmount;
+        } catch {
+            // Swap failed - revert with error
+            revert SwapFailed();
+        }
     }
 
     /**

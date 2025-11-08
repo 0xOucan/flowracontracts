@@ -13,8 +13,9 @@ library FlowraMath {
     /// @notice Daily swap percentage (1%)
     uint256 public constant DAILY_SWAP_BPS = 100; // 1% in basis points
 
-    /// @notice Seconds in a day (1 minute for testing)
-    uint256 public constant SECONDS_PER_DAY = 60; // Changed from 86400 for testing
+    /// @notice Swap interval in seconds (5 minutes for testing, configurable in FlowraCore)
+    /// @dev This is now just a default - actual interval is set in FlowraCore
+    uint256 public constant DEFAULT_SWAP_INTERVAL = 300; // 5 minutes for testing (use 86400 for production/daily)
 
     /// @notice Minimum deposit amount (1 USDC with 6 decimals for testing)
     uint256 public constant MIN_DEPOSIT = 1 * 10**6; // Changed from 100 for testing
@@ -43,21 +44,46 @@ library FlowraMath {
     }
 
     /**
-     * @notice Check if enough time has passed for next swap
+     * @notice Check if enough time has passed for next swap (uses DEFAULT_SWAP_INTERVAL)
      * @param lastSwapTime Timestamp of last swap
-     * @return True if 24 hours have passed
+     * @return True if swap interval has passed
+     * @dev This function uses the hardcoded DEFAULT_SWAP_INTERVAL for compatibility
      */
     function canExecuteSwap(uint256 lastSwapTime) internal view returns (bool) {
-        return block.timestamp >= lastSwapTime + SECONDS_PER_DAY;
+        return block.timestamp >= lastSwapTime + DEFAULT_SWAP_INTERVAL;
     }
 
     /**
-     * @notice Calculate time until next swap
+     * @notice Check if enough time has passed for next swap (with custom interval)
+     * @param lastSwapTime Timestamp of last swap
+     * @param swapInterval Swap interval in seconds
+     * @return True if swap interval has passed
+     */
+    function canExecuteSwapWithInterval(uint256 lastSwapTime, uint256 swapInterval) internal view returns (bool) {
+        return block.timestamp >= lastSwapTime + swapInterval;
+    }
+
+    /**
+     * @notice Calculate time until next swap (uses DEFAULT_SWAP_INTERVAL)
      * @param lastSwapTime Timestamp of last swap
      * @return Seconds until next swap (0 if ready)
      */
     function timeUntilNextSwap(uint256 lastSwapTime) internal view returns (uint256) {
-        uint256 nextSwapTime = lastSwapTime + SECONDS_PER_DAY;
+        uint256 nextSwapTime = lastSwapTime + DEFAULT_SWAP_INTERVAL;
+        if (block.timestamp >= nextSwapTime) {
+            return 0;
+        }
+        return nextSwapTime - block.timestamp;
+    }
+
+    /**
+     * @notice Calculate time until next swap (with custom interval)
+     * @param lastSwapTime Timestamp of last swap
+     * @param swapInterval Swap interval in seconds
+     * @return Seconds until next swap (0 if ready)
+     */
+    function timeUntilNextSwapWithInterval(uint256 lastSwapTime, uint256 swapInterval) internal view returns (uint256) {
+        uint256 nextSwapTime = lastSwapTime + swapInterval;
         if (block.timestamp >= nextSwapTime) {
             return 0;
         }

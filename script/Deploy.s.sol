@@ -29,6 +29,9 @@ contract Deploy is Script {
     address constant WETH = 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1;
     address constant AAVE_POOL = 0x794a61358D6845594F94dc1DB02A252b5b4814aD;
 
+    // Uniswap v4 PoolManager on Arbitrum One (from https://docs.uniswap.org/contracts/v4/deployments)
+    address constant POOL_MANAGER = 0x360E68faCcca8cA495c1B759Fd9EEe466db9FB32;
+
     // ============ Deployed Contracts ============
 
     FlowraCore public flowraCore;
@@ -67,7 +70,7 @@ contract Deploy is Script {
 
         // 3. Deploy FlowraCore
         console2.log("3. Deploying FlowraCore...");
-        flowraCore = new FlowraCore(USDC, WETH);
+        flowraCore = new FlowraCore(USDC, WETH, POOL_MANAGER);
         console2.log("   FlowraCore deployed at:", address(flowraCore));
         console2.log("");
 
@@ -123,6 +126,7 @@ contract Deploy is Script {
         console2.log("USDC:              ", USDC);
         console2.log("WETH:              ", WETH);
         console2.log("Aave Pool:         ", AAVE_POOL);
+        console2.log("Uniswap PoolMgr:   ", POOL_MANAGER);
         console2.log("");
 
         console2.log("Next Steps:");

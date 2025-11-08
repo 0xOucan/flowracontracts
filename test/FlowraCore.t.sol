@@ -25,6 +25,7 @@ contract FlowraCoreTest is Test {
     IERC20 public constant USDC = IERC20(0xaf88d065e77c8cC2239327C5EDb3A432268e5831);
     IERC20 public constant WETH = IERC20(0x82aF49447D8a07e3bd95BD0d56f35241523fBab1);
     address public constant AAVE_POOL = 0x794a61358D6845594F94dc1DB02A252b5b4814aD;
+    address public constant POOL_MANAGER = 0x360E68faCcca8cA495c1B759Fd9EEe466db9FB32;
 
     // ============ Test Accounts ============
     address public owner;
@@ -46,7 +47,7 @@ contract FlowraCoreTest is Test {
         // Deploy contracts
         aaveVault = new FlowraAaveVault(address(USDC), AAVE_POOL);
         yieldRouter = new FlowraYieldRouter(address(USDC));
-        flowraCore = new FlowraCore(address(USDC), address(WETH));
+        flowraCore = new FlowraCore(address(USDC), address(WETH), POOL_MANAGER);
 
         // Configure contracts
         aaveVault.setFlowraCore(address(flowraCore));

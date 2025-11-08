@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
+/// @notice Currency type (Uniswap v4 compatible)
+/// @dev Wraps an address to represent a currency (address(0) for native ETH)
+type Currency is address;
+
 /**
  * @title FlowraTypes
  * @notice Shared type definitions for the Flowra protocol
