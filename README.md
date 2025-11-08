@@ -64,13 +64,16 @@ Flowra enables users to:
 | **FlowraCore** | `0x3811AC2f669a7e57A60C06bE135DfB297a6E7639` | [View](https://arbiscan.io/address/0x3811AC2f669a7e57A60C06bE135DfB297a6E7639) |
 | **FlowraAaveVault** | `0x4815146A7bC82621d00A9B6c53E7388365692817` | [View](https://arbiscan.io/address/0x4815146A7bC82621d00A9B6c53E7388365692817) |
 | **FlowraYieldRouter** | `0xa757f81Cc0309a4Ef70e43d221C3292d572b1bB1` | [View](https://arbiscan.io/address/0xa757f81Cc0309a4Ef70e43d221C3292d572b1bB1) |
+| **FlowraHook** | `0xdf236B1F3714cDdFC028c4b7E52A7B4C7dBe33F5` | [View](https://arbiscan.io/address/0xdf236B1F3714cDdFC028c4b7E52A7B4C7dBe33F5) |
 
 ### Configuration
 
 - **Executor Address**: `0xcce721fC201D4571A5AC826A3e0908F81807fAa5` (has EXECUTOR_ROLE)
 - **6 Public Goods Projects**: ✅ Added and ready
 - **Aave v3 Integration**: ✅ Connected to Arbitrum Aave Pool
-- **Uniswap v4 Hook**: 🔜 Ready to deploy (use `./deploy-hook.sh`)
+- **Uniswap v4 Hook**: ✅ Deployed - `0xdf236B1F3714cDdFC028c4b7E52A7B4C7dBe33F5`
+- **USDC/WETH Pool**: ✅ Connected to [live v4 pool](https://app.uniswap.org/explore/pools/arbitrum/0x864abca0a6202dba5b8868772308da953ff125b0f95015adbf89aaf579e903a8)
+- **Pool Key**: `0x864abca0a6202dba5b8868772308da953ff125b0f95015adbf89aaf579e903a8`
 - **All contracts verified** on Arbiscan
 
 ## 📦 Contracts
