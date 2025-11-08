@@ -147,10 +147,14 @@ if [ ! -f "deployments/arbitrum-mainnet.json" ]; then
     exit 1
 fi
 
-FLOWRA_CORE=$(jq -r '.flowraCore // empty' deployments/arbitrum-mainnet.json 2>/dev/null || echo "")
+# Parse JSON without jq (more reliable)
+FLOWRA_CORE=$(grep -o '"flowraCore"[[:space:]]*:[[:space:]]*"[^"]*"' deployments/arbitrum-mainnet.json | grep -o '0x[a-fA-F0-9]*' || echo "")
 
 if [ -z "$FLOWRA_CORE" ]; then
     print_error "FlowraCore address not found in deployment file!"
+    echo ""
+    echo "Deployment file contents:"
+    cat deployments/arbitrum-mainnet.json
     exit 1
 fi
 
@@ -218,7 +222,7 @@ if forge script script/DeployHook.s.sol \
 
     # Check if deployment file exists
     if [ -f "deployments/arbitrum-hook.json" ]; then
-        FLOWRA_HOOK=$(jq -r '.flowraHook' deployments/arbitrum-hook.json)
+        FLOWRA_HOOK=$(grep -o '"flowraHook"[[:space:]]*:[[:space:]]*"[^"]*"' deployments/arbitrum-hook.json | grep -o '0x[a-fA-F0-9]*' || echo "")
 
         echo "Deployed contracts:"
         echo "  FlowraHook:        $FLOWRA_HOOK"
@@ -246,8 +250,8 @@ echo "  🎉 FlowraHook Deployment Complete!"
 echo "==============================================\\n${NC}"
 
 if [ -f "deployments/arbitrum-hook.json" ]; then
-    FLOWRA_HOOK=$(jq -r '.flowraHook' deployments/arbitrum-hook.json)
-    POOL_MANAGER=$(jq -r '.poolManager' deployments/arbitrum-hook.json)
+    FLOWRA_HOOK=$(grep -o '"flowraHook"[[:space:]]*:[[:space:]]*"[^"]*"' deployments/arbitrum-hook.json | grep -o '0x[a-fA-F0-9]*' || echo "")
+    POOL_MANAGER=$(grep -o '"poolManager"[[:space:]]*:[[:space:]]*"[^"]*"' deployments/arbitrum-hook.json | grep -o '0x[a-fA-F0-9]*' || echo "")
 
     echo "📋 Contract Addresses:"
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
