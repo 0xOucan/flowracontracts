@@ -5,7 +5,7 @@
 [![Solidity](https://img.shields.io/badge/Solidity-^0.8.26-363636?style=flat-square&logo=solidity)](https://soliditylang.org/)
 [![Foundry](https://img.shields.io/badge/Built%20with-Foundry-FFDB1C?style=flat-square)](https://book.getfoundry.sh/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](https://opensource.org/licenses/MIT)
-[![Status](https://img.shields.io/badge/Status-LIVE%20ON%20ARBITRUM-success?style=flat-square&logo=ethereum)](https://arbiscan.io/address/0x3811AC2f669a7e57A60C06bE135DfB297a6E7639)
+[![Status](https://img.shields.io/badge/Status-LIVE%20ON%20ARBITRUM-success?style=flat-square&logo=ethereum)](https://arbiscan.io/address/0x640cF504976e2cCc0A38806E5A0c6B910308F0cb)
 
 **🎉 FULLY DEPLOYED & OPERATIONAL ON ARBITRUM MAINNET**
 
@@ -82,10 +82,10 @@ Flowra enables users to:
 
 | Contract | Address | Arbiscan |
 |----------|---------|----------|
-| **FlowraCore** | `0x3811AC2f669a7e57A60C06bE135DfB297a6E7639` | [View](https://arbiscan.io/address/0x3811AC2f669a7e57A60C06bE135DfB297a6E7639) |
-| **FlowraAaveVault** | `0x4815146A7bC82621d00A9B6c53E7388365692817` | [View](https://arbiscan.io/address/0x4815146A7bC82621d00A9B6c53E7388365692817) |
-| **FlowraYieldRouter** | `0xa757f81Cc0309a4Ef70e43d221C3292d572b1bB1` | [View](https://arbiscan.io/address/0xa757f81Cc0309a4Ef70e43d221C3292d572b1bB1) |
-| **FlowraHook** | `0xdf236B1F3714cDdFC028c4b7E52A7B4C7dBe33F5` | [View](https://arbiscan.io/address/0xdf236B1F3714cDdFC028c4b7E52A7B4C7dBe33F5) |
+| **FlowraCore** | `0x640cF504976e2cCc0A38806E5A0c6B910308F0cb` | [View](https://arbiscan.io/address/0x640cF504976e2cCc0A38806E5A0c6B910308F0cb) |
+| **FlowraAaveVault** | `0x4cea77a21b9B18f447e3aCDFDeB1981B00d7d700` | [View](https://arbiscan.io/address/0x4cea77a21b9B18f447e3aCDFDeB1981B00d7d700) |
+| **FlowraYieldRouter** | `0x903C9Ad0d7D600554BA35E6255E62B1F144C1a18` | [View](https://arbiscan.io/address/0x903C9Ad0d7D600554BA35E6255E62B1F144C1a18) |
+| **FlowraHook** | `0x00f590D69dc706B09af1082EDfd6fe9Ce349c19E` | [View](https://arbiscan.io/address/0x00f590D69dc706B09af1082EDfd6fe9Ce349c19E) |
 
 ### Configuration ✅
 
@@ -94,7 +94,7 @@ Flowra enables users to:
 - ✅ **Executor Address**: `0xcce721fC201D4571A5AC826A3e0908F81807fAa5` (has EXECUTOR_ROLE)
 - ✅ **6 Public Goods Projects**: Added and active
 - ✅ **Aave v3 Integration**: Connected to Arbitrum Aave Pool
-- ✅ **Uniswap v4 Hook**: Deployed at `0xdf236B1F3714cDdFC028c4b7E52A7B4C7dBe33F5`
+- ✅ **Uniswap v4 Hook**: Deployed at `0x00f590D69dc706B09af1082EDfd6fe9Ce349c19E`
 - ✅ **Pool Key Configured**: Set to USDC/WETH pool `0x864abca0a6202dba5b8868772308da953ff125b0f95015adbf89aaf579e903a8`
 - ✅ **USDC/WETH Pool**: Connected to [live v4 pool](https://app.uniswap.org/explore/pools/arbitrum/0x864abca0a6202dba5b8868772308da953ff125b0f95015adbf89aaf579e903a8)
 - ✅ **All contracts verified** on Arbiscan
@@ -363,13 +363,13 @@ Traditional DCA requires external keepers/bots → costly & centralized. With Un
 # Approve USDC (100 USDC = 100000000 with 6 decimals)
 cast send 0xaf88d065e77c8cC2239327C5EDb3A432268e5831 \
   "approve(address,uint256)" \
-  0x3811AC2f669a7e57A60C06bE135DfB297a6E7639 \
+  0x640cF504976e2cCc0A38806E5A0c6B910308F0cb \
   100000000 \
   --rpc-url $ARBITRUM_RPC_URL \
   --account monad-deployer
 
 # Deposit 100 USDC with 10% yield to Flowra project (ID 5)
-cast send 0x3811AC2f669a7e57A60C06bE135DfB297a6E7639 \
+cast send 0x640cF504976e2cCc0A38806E5A0c6B910308F0cb \
   "deposit(uint256,uint256,uint256[])" \
   100000000 \
   1000 \
@@ -381,12 +381,12 @@ cast send 0x3811AC2f669a7e57A60C06bE135DfB297a6E7639 \
 **Step 2: Monitor Swap Queue**
 ```bash
 # Check pending swaps
-cast call 0xdf236B1F3714cDdFC028c4b7E52A7B4C7dBe33F5 \
+cast call 0x00f590D69dc706B09af1082EDfd6fe9Ce349c19E \
   "getPendingSwapCount()" \
   --rpc-url $ARBITRUM_RPC_URL
 
 # Check if you're in queue
-cast call 0xdf236B1F3714cDdFC028c4b7E52A7B4C7dBe33F5 \
+cast call 0x00f590D69dc706B09af1082EDfd6fe9Ce349c19E \
   "isInQueue(address)" \
   0x9c77c6fafc1eb0821F1De12972Ef0199C97C6e45 \
   --rpc-url $ARBITRUM_RPC_URL
@@ -401,7 +401,7 @@ cast call 0xdf236B1F3714cDdFC028c4b7E52A7B4C7dBe33F5 \
 **Step 4: Manual Swap (Optional - Testing Only)**
 ```bash
 # Trigger swap manually as executor
-cast send 0x3811AC2f669a7e57A60C06bE135DfB297a6E7639 \
+cast send 0x640cF504976e2cCc0A38806E5A0c6B910308F0cb \
   "executeSwap(address)" \
   0x9c77c6fafc1eb0821F1De12972Ef0199C97C6e45 \
   --rpc-url $ARBITRUM_RPC_URL \
@@ -519,8 +519,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Complete testing and deployment automation scripts
 
 **Live Demo:**
-- **FlowraCore**: https://arbiscan.io/address/0x3811AC2f669a7e57A60C06bE135DfB297a6E7639
-- **FlowraHook**: https://arbiscan.io/address/0xdf236B1F3714cDdFC028c4b7E52A7B4C7dBe33F5
+- **FlowraCore**: https://arbiscan.io/address/0x640cF504976e2cCc0A38806E5A0c6B910308F0cb
+- **FlowraHook**: https://arbiscan.io/address/0x00f590D69dc706B09af1082EDfd6fe9Ce349c19E
 - **USDC/WETH Pool**: https://app.uniswap.org/explore/pools/arbitrum/0x864abca0a6202dba5b8868772308da953ff125b0f95015adbf89aaf579e903a8
 
 **Try It Yourself:**
